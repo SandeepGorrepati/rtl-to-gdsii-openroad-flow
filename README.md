@@ -1,155 +1,43 @@
-# RTL-to-GDSII Flow Exploration using Yosys and OpenROAD
+# RTL synthesis and netlist-equivalence flow
 
-## Overview
-This project explores the early digital ASIC implementation flow using open-source EDA tools. A 32-bit combinational ALU written in Verilog is used as the reference design to demonstrate how RTL moves through verification, synthesis, gate-level netlist generation, and backend flow study.
+![Verification](https://github.com/SandeepGorrepati/rtl-to-gdsii-openroad-flow/actions/workflows/verify.yml/badge.svg)
 
-The emphasis of this project is on building practical understanding of the transition from RTL design to gate-level implementation and physical-design flow stages.
+A reproducible free-tool flow for a 32-bit combinational ALU: independent functional simulation, fresh Yosys synthesis, gate-level simulation, and formal combinational equivalence. The repository keeps its historical RTL-to-GDSII name; completed work stops at a generic gate-level netlist. No routed GDSII, Sky130 implementation, signoff timing, area in square micrometers, or power result is claimed.
 
----
+## Design
 
-## Design Description
-The design implemented in this project is a 32-bit combinational ALU supporting:
+Opcodes select addition/subtraction modulo 2^32, bitwise AND/OR/XOR, one-bit logical left/right shifts, and default zero. The shift amount is fixed at one; this is not a variable barrel shifter.
 
-- Addition
-- Subtraction
-- Bitwise AND
-- Bitwise OR
-- Bitwise XOR
-- Shift left
-- Shift right
+## Evidence
 
----
+| Stage | Observed result |
+|---|---|
+| Python arithmetic oracle versus RTL | 8,200 vectors passed across all eight opcode values |
+| Fresh Yosys synthesis | Generic logic netlist generated in CI |
+| Same independent oracle versus synthesized netlist | 8,200 vectors passed |
+| Yosys combinational equivalence | All 32 output-bit equivalence cells proven; zero unproven |
 
-## Flow Covered
+Vectors include a cross-product of boundary values and 1,000 deterministic random operand pairs, each exercised under every opcode. Python integer arithmetic supplies the expected data; neither the RTL nor the gate netlist computes its own test expectation. Formal equivalence covers the combinational input space relative to the RTL specification; it does not prove that the RTL matches an external ISA specification.
 
-1. RTL design in Verilog
-2. Functional verification using Icarus Verilog
-3. Waveform inspection using GTKWave
-4. Logic synthesis using Yosys
-5. Gate-level netlist generation
-6. Schematic inspection of synthesized logic
-7. Study of downstream OpenROAD-based physical design stages:
-   - floorplanning
-   - placement
-   - routing
-   - timing analysis
-   - GDSII generation flow
+## Reproduce
 
----
+Install Python 3, Icarus Verilog, and Yosys. From the root:
 
-## Tools Used
+```bash
+python3 scripts/gen_vectors.py
+iverilog -g2012 -s tb_oracle -o build/rtl rtl/alu.v rtl/tb_oracle.v
+vvp build/rtl
+mkdir -p reports
+yosys -s scripts/synth.ys
+iverilog -g2012 -s tb_oracle -o build/gate reports/alu_netlist.v rtl/tb_oracle.v
+vvp build/gate
+yosys -s scripts/equiv.ys
+```
 
-- Verilog HDL
-- Icarus Verilog
-- GTKWave
-- Yosys
-- OpenROAD Flow Scripts
-- KLayout
+CI saves fresh synthesis/equivalence logs and the generated netlist as artifacts. A scoreboard mismatch, timeout, synthesis error, or unproven equivalence fails the workflow. The older checked-in netlist/report are historical outputs; use a fresh run's artifacts for current tool-dependent cell statistics.
 
----
+## Physical implementation scope
 
-## Repository Structure
+Floorplanning, placement, clock-tree synthesis, routing, extraction, and GDSII export remain future work. There is no PDK/liberty/SDC-backed timing constraint or physical signoff in this repository. Generic-cell counts are not standard-cell area or a measured PPA result.
 
-- `rtl/` – RTL design and testbench
-- `scripts/` – synthesis script
-- `reports/` – synthesis outputs and netlist
-- `docs/` – project notes
-- `screenshots/` – waveform and schematic proof
-
----
-
-## Synthesis Results
-
-Generated artifacts:
-- `reports/alu_netlist.v`
-- `reports/synthesis_report.txt`
-
-Key synthesis observations:
-- RTL arithmetic and logic operations were transformed into a combinational gate-level netlist
-- No latches or memories were inferred
-- The resulting logic network demonstrates how compact RTL expands significantly after synthesis
-
----
-
-## What This Project Demonstrates
-
-- Practical RTL verification workflow
-- Verilog-to-gate-level synthesis using Yosys
-- Interpretation of synthesis statistics and generated netlists
-- Awareness of how synthesized RTL proceeds into backend physical-design flow stages
-- Understanding of the broader RTL-to-GDSII methodology used in ASIC design
-
----
-
-## Visual Artifacts
-
-### Functional Waveform
-![ALU Waveform](screenshots/alu_waveform.png)
-
-### Synthesized Logic Schematic
-![ALU Schematic](screenshots/alu_schematic.png)
-
----
-
-## Important Scope Note
-
-This project demonstrates RTL verification, synthesis, and backend flow exploration. It does **not** claim full routed GDSII generation in the current repository state.
-
----
-
-## Future Improvements
-
-- Run a fully configured OpenROAD implementation flow with PDK support
-- Generate floorplan / placement / routing reports
-- Capture timing and area reports from a backend run
-- Extend the exploration to a sequential design block
-
-
----
-
-## Quantitative Results (Yosys Synthesis)
-
-- Total cells: ~646
-- Total wires: ~618
-- Wire bits: ~713
-
-### Observations
-- Purely combinational design (no latches/memory inferred)
-- Arithmetic operations expanded into complex gate structures
-- Significant growth from compact RTL to gate-level netlist
-
-
----
-
-## RTL to GDSII Flow Understanding
-
-This project explores how RTL transitions into physical implementation:
-
-1. **RTL Design**
-   - Behavioral Verilog description of logic
-
-2. **Synthesis (Yosys)**
-   - Converts RTL → gate-level netlist
-   - Maps logic to standard cells
-
-3. **Floorplanning (conceptual)**
-   - Defines chip area and layout regions
-
-4. **Placement (conceptual)**
-   - Positions standard cells physically
-
-5. **Routing (conceptual)**
-   - Connects placed cells using metal layers
-
-6. **Timing Analysis**
-   - Ensures design meets timing constraints
-
-7. **GDSII Generation**
-   - Final layout for fabrication
-
-
----
-
-## Key Highlight
-This project demonstrates practical understanding of how RTL designs are transformed into gate-level implementations and prepared for backend physical design in modern ASIC workflows.
-
+This supporting project demonstrates synthesis reproducibility and transformation verification. It is not presented as completed RTL-to-GDSII experience. See [upgrade validation](proof/UPGRADE_VALIDATION.md).
