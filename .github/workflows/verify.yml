@@ -1,0 +1,42 @@
+name: RTL and synthesized netlist verification
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y iverilog yosys
+      - name: Independent functional oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/gen_vectors.py
+          iverilog -g2012 -s tb_oracle -o build/rtl rtl/alu.v rtl/tb_oracle.v
+          vvp build/rtl | tee build/rtl.log
+      - name: Fresh synthesis
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          yosys -Q -T -s scripts/synth.ys | tee build/synthesis.log
+      - name: Gate-level functional oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          iverilog -g2012 -s tb_oracle -o build/gate reports/alu_netlist.v rtl/tb_oracle.v
+          vvp build/gate | tee build/gate.log
+      - name: RTL-to-netlist combinational equivalence
+        shell: bash
+        run: |
+          set -euo pipefail
+          yosys -Q -T -s scripts/equiv.ys | tee build/equivalence.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthesis-evidence
+          path: |
+            build/*.log
+            reports/alu_netlist.v

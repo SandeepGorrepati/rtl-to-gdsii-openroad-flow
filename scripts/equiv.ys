@@ -1,0 +1,14 @@
+read_verilog rtl/alu.v
+rename alu gold
+proc
+opt
+design -stash gold
+read_verilog reports/alu_netlist.v
+rename alu gate
+design -stash gate
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+equiv_make gold gate equiv
+hierarchy -top equiv
+equiv_simple
+equiv_status -assert
