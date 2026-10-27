@@ -36,6 +36,14 @@ yosys -s scripts/equiv.ys
 
 CI saves fresh synthesis/equivalence logs and the generated netlist as artifacts. A scoreboard mismatch, timeout, synthesis error, or unproven equivalence fails the workflow. The older checked-in netlist/report are historical outputs; use a fresh run's artifacts for current tool-dependent cell statistics.
 
+## Relationship to the timing exercise
+
+This repository's design is a **32-bit combinational ALU**, with independent
+RTL/netlist simulation and combinational equivalence as its main deliverables.
+The separate [`synth-sta` learning exercise](https://github.com/SandeepGorrepati/synth-sta)
+uses an **8-bit registered ALU** for synthesis statistics and timing-flow exploration.
+They are distinct designs, not two completed RTL-to-GDSII projects.
+
 ## Physical implementation scope
 
 Floorplanning, placement, clock-tree synthesis, routing, extraction, and GDSII export remain future work. There is no PDK/liberty/SDC-backed timing constraint or physical signoff in this repository. Generic-cell counts are not standard-cell area or a measured PPA result.
